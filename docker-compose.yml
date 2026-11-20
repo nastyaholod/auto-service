@@ -6,8 +6,6 @@ services:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: client_service
-    ports:
-      - "5432:5432"
     volumes:
       - client-db-data:/var/lib/postgresql/data
     healthcheck:
@@ -19,8 +17,6 @@ services:
   # Redis (кэширование)
   redis:
     image: redis:7-alpine
-    ports:
-      - "6379:6379"
     volumes:
       - redis-data:/data
     healthcheck:
@@ -32,9 +28,6 @@ services:
   # RabbitMQ (шина данных)
   rabbitmq:
     image: rabbitmq:3-management-alpine
-    ports:
-      - "5672:5672"      # AMQP порт для приложений
-      - "15672:15672"    # Web UI для мониторинга
     environment:
       RABBITMQ_DEFAULT_USER: guest
       RABBITMQ_DEFAULT_PASS: guest
@@ -63,8 +56,6 @@ services:
       RABBITMQ_PORT: 5672
       RABBITMQ_USER: guest
       RABBITMQ_PASS: guest
-    ports:
-      - "8001:8000"
     depends_on:
       client-db:
         condition: service_healthy
@@ -82,8 +73,6 @@ services:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: catalog_service
-    ports:
-      - "5433:5432"
     volumes:
       - catalog-db-data:/var/lib/postgresql/data
     healthcheck:
@@ -105,9 +94,6 @@ services:
       CATALOG_DB_DATABASE: catalog_service
       REDIS_HOST: redis
       REDIS_PORT: 6379
-    ports:
-      - "8002:8000"
-      - "50051:50051"
     depends_on:
       catalog-db:
         condition: service_healthy
@@ -124,8 +110,6 @@ services:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: workorder_service
-    ports:
-      - "5434:5432"
     volumes:
       - workorder-db-data:/var/lib/postgresql/data
     healthcheck:
@@ -151,8 +135,6 @@ services:
       RABBITMQ_PASS: guest
       CATALOG_GRPC_HOST: catalog-service
       CATALOG_GRPC_PORT: 50051 
-    ports:
-      - "8004:8000"
     depends_on:
       workorder-db:
         condition: service_healthy
@@ -189,8 +171,6 @@ services:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: billing_service
-    ports:
-      - "5435:5432"
     volumes:
       - billing-db-data:/var/lib/postgresql/data
     healthcheck:
@@ -214,8 +194,6 @@ services:
       RABBITMQ_PORT: 5672
       RABBITMQ_USER: guest
       RABBITMQ_PASS: guest
-    ports:
-      - "8005:8000"
     depends_on:
       billing-db:
         condition: service_healthy
@@ -228,8 +206,6 @@ services:
       POSTGRES_DB: identity_service
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
-    ports:
-      - "5436:5432"
     volumes:
       - identity-db-data:/var/lib/postgresql/data
     healthcheck:
@@ -248,8 +224,6 @@ services:
       IDENTITY_DB_USER: postgres
       IDENTITY_DB_PASSWORD: postgres
       IDENTITY_DB_NAME: identity_service
-    ports:
-      - "8006:8000"
     volumes:
       - ./services/identity-service:/app 
     depends_on:
