@@ -1,0 +1,264 @@
+services:
+  # PostgreSQL для client-service 
+  client-db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: client_service
+    ports:
+      - "5432:5432"
+    volumes:
+      - client-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # Redis (кэширование)
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # RabbitMQ (шина данных)
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    ports:
+      - "5672:5672"      # AMQP порт для приложений
+      - "15672:15672"    # Web UI для мониторинга
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+    volumes:
+      - rabbitmq-data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmqctl", "status"]
+      interval: 10s
+      timeout: 10s
+      retries: 5
+
+  # client-service
+  client-service:
+    build:
+      context: ./services/client-service
+    environment:
+      CLIENT_DB_HOST: client-db
+      CLIENT_DB_PORT: 5432
+      CLIENT_DB_USER: postgres
+      CLIENT_DB_PASSWORD: postgres
+      CLIENT_DB_DATABASE: client_service
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+      RABBITMQ_USER: guest
+      RABBITMQ_PASS: guest
+    ports:
+      - "8001:8000"
+    depends_on:
+      client-db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+
+      
+  
+    # PostgreSQL для catalog-service
+  catalog-db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: catalog_service
+    ports:
+      - "5433:5432"
+    volumes:
+      - catalog-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # catalog-service
+  catalog-service:
+    build:
+      context: ./services/catalog-service
+    environment:
+      CATALOG_DB_HOST: catalog-db
+      CATALOG_DB_PORT: 5432
+      CATALOG_DB_USER: postgres
+      CATALOG_DB_PASSWORD: postgres
+      CATALOG_DB_DATABASE: catalog_service
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+    ports:
+      - "8002:8000"
+      - "50051:50051"
+    depends_on:
+      catalog-db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+
+
+  
+    # PostgreSQL для workorder-service 
+  workorder-db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: workorder_service
+    ports:
+      - "5434:5432"
+    volumes:
+      - workorder-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # workorder-service 
+  workorder-service:
+    build:
+      context: ./services/workorder-service
+    environment:
+      WORKORDER_DB_HOST: workorder-db
+      WORKORDER_DB_PORT: 5432
+      WORKORDER_DB_USER: postgres
+      WORKORDER_DB_PASSWORD: postgres
+      WORKORDER_DB_DATABASE: workorder_service
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+      RABBITMQ_USER: guest
+      RABBITMQ_PASS: guest
+      CATALOG_GRPC_HOST: catalog-service
+      CATALOG_GRPC_PORT: 50051 
+    ports:
+      - "8004:8000"
+    depends_on:
+      workorder-db:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+
+  # outbox-publisher (отдельный процесс)
+  outbox-publisher:
+    build:
+      context: ./services/workorder-service
+    environment:
+      WORKORDER_DB_HOST: workorder-db
+      WORKORDER_DB_PORT: 5432
+      WORKORDER_DB_USER: postgres
+      WORKORDER_DB_PASSWORD: postgres
+      WORKORDER_DB_DATABASE: workorder_service
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+      RABBITMQ_USER: guest
+      RABBITMQ_PASS: guest
+    command: ["python", "-m", "app.outbox_publisher"]
+    depends_on:
+      workorder-db:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+  
+
+
+    # PostgreSQL для billing-service
+  billing-db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: billing_service
+    ports:
+      - "5435:5432"
+    volumes:
+      - billing-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # billing-service
+  billing-service:
+    build:
+      context: ./services/billing-service
+    environment:
+      BILLING_DB_HOST: billing-db
+      BILLING_DB_PORT: 5432
+      BILLING_DB_USER: postgres
+      BILLING_DB_PASSWORD: postgres
+      BILLING_DB_DATABASE: billing_service
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+      RABBITMQ_USER: guest
+      RABBITMQ_PASS: guest
+    ports:
+      - "8005:8000"
+    depends_on:
+      billing-db:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+
+  identity-db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: identity_service
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5436:5432"
+    volumes:
+      - identity-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  identity-service:
+    build:
+      context: ./services/identity-service
+    environment:
+      IDENTITY_DB_HOST: identity-db
+      IDENTITY_DB_PORT: 5432
+      IDENTITY_DB_USER: postgres
+      IDENTITY_DB_PASSWORD: postgres
+      IDENTITY_DB_NAME: identity_service
+    ports:
+      - "8006:8000"
+    volumes:
+      - ./services/identity-service:/app 
+    depends_on:
+      identity-db:
+        condition: service_healthy
+
+
+
+volumes:
+  client-db-data:
+  redis-data:
+  rabbitmq-data:
+  catalog-db-data:
+  workorder-db-data:
+  billing-db-data:
+  identity-db-data:
+  

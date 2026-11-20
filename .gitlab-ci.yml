@@ -1,0 +1,93 @@
+# Определяем этапы пайплайна
+stages:
+  - test
+  - build
+
+# Глобальные переменные для всех джоб
+variables:
+  POSTGRES_DB: test_identity_db
+  POSTGRES_USER: test_user
+  POSTGRES_PASSWORD: test_password
+  POSTGRES_HOST_AUTH_METHOD: trust
+  DB_HOST: postgres
+  DB_PORT: 5432
+  DB_USER: test_user
+  DB_PASSWORD: test_password
+  DB_NAME: test_identity_db
+
+# ---------------------------------------------------------
+# 1. Тестирование identity-service
+# ---------------------------------------------------------
+test_identity_service:
+  stage: test
+  image: python:3.11
+  services:
+    - name: postgres:16-alpine
+      alias: postgres
+  
+  # Переменные окружения конкретно для этой джобы (переопределяют глобальные для приложения)
+  variables:
+    DB_HOST: postgres
+    DB_PORT: "5432"
+    DB_USER: test_user
+    DB_PASSWORD: test_password
+    DB_NAME: test_identity_db
+
+  script:
+    # Переходим в папку сервиса
+    - cd services/identity-service
+    # Устанавливаем зависимости (включая pytest и pytest-cov)
+    - pip install --upgrade pip
+    - pip install -r requirements.txt
+    # Запускаем тесты с генерацией отчетов
+    - pytest tests/ -v --cov=app --cov-report=term --cov-report=xml --junitxml=report.xml
+
+  # Извлекаем процент покрытия кода для отображения в GitLab
+  coverage: '/TOTAL\s+\d+\s+\d+\s+(\d+\%)/'
+
+  # Сохраняем артефакты (отчеты), чтобы их можно было скачать или посмотреть в UI
+  artifacts:
+    when: always
+    reports:
+      junit: services/identity-service/report.xml
+      coverage_report:
+        coverage_format: cobertura
+        path: services/identity-service/coverage.xml
+    paths:
+      - services/identity-service/coverage.xml
+      - services/identity-service/report.xml
+
+# ---------------------------------------------------------
+# 2. Тестирование workorder-service 
+# ---------------------------------------------------------
+# Когда вы добавите тесты в workorder-service, просто раскомментируйте этот блок!
+#
+# test_workorder_service:
+#   stage: test
+#   image: python:3.11
+#   services:
+#     - name: postgres:16-alpine
+#       alias: postgres
+#     - name: rabbitmq:3-management-alpine
+#       alias: rabbitmq
+#   script:
+#     - cd services/workorder-service
+#     - pip install -r requirements.txt
+#     - pytest tests/ -v --junitxml=report.xml
+#   artifacts:
+#     reports:
+#       junit: services/workorder-service/report.xml
+
+# ---------------------------------------------------------
+# 3. Сборка образов 
+# ---------------------------------------------------------
+build_images:
+  stage: build
+  image: docker:24.0
+  services:
+    - docker:24.0-dind
+  script:
+    - echo "Сборка Docker образов..."
+    - docker compose build
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH # Запускаем только при пуше в main/master
