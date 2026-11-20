@@ -50,6 +50,7 @@ services:
   client-service:
     build:
       context: ./services/client-service
+    container_name: client-service
     environment:
       CLIENT_DB_HOST: client-db
       CLIENT_DB_PORT: 5432
@@ -95,6 +96,7 @@ services:
   catalog-service:
     build:
       context: ./services/catalog-service
+    container_name: catalog-service
     environment:
       CATALOG_DB_HOST: catalog-db
       CATALOG_DB_PORT: 5432
@@ -136,6 +138,7 @@ services:
   workorder-service:
     build:
       context: ./services/workorder-service
+    container_name: workorder-service
     environment:
       WORKORDER_DB_HOST: workorder-db
       WORKORDER_DB_PORT: 5432
@@ -200,6 +203,7 @@ services:
   billing-service:
     build:
       context: ./services/billing-service
+    container_name: billing-service
     environment:
       BILLING_DB_HOST: billing-db
       BILLING_DB_PORT: 5432
@@ -237,6 +241,7 @@ services:
   identity-service:
     build:
       context: ./services/identity-service
+    container_name: identity-service
     environment:
       IDENTITY_DB_HOST: identity-db
       IDENTITY_DB_PORT: 5432
